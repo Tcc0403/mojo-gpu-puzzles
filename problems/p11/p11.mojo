@@ -26,7 +26,24 @@ fn conv_1d_simple[
 ):
     global_i = block_dim.x * block_idx.x + thread_idx.x
     local_i = thread_idx.x
-    # FILL ME IN (roughly 14 lines)
+    shared_a = tb[dtype]().row_major[SIZE]().shared().alloc()
+    shared_b = tb[dtype]().row_major[CONV]().shared().alloc()
+
+    if global_i < SIZE:
+        shared_a[local_i] = a[global_i]
+    if global_i < CONV:
+        shared_b[local_i] = b[global_i]
+    barrier()
+    var local_sum: output.element_type = 0
+    # Note: `@parameter` decorator unrolls the loop at compile time given `CONV` is a compile-time constant
+    # See: https://docs.modular.com/mojo/manual/decorators/parameter/#parametric-for-statement
+    @parameter
+    for j in range(CONV):
+        if global_i + j < SIZE:
+            local_sum = shared_a[local_i + j] * shared_b[j] + local_sum
+    if global_i < SIZE:
+        output[global_i] = local_sum
+
 
 
 # ANCHOR_END: conv_1d_simple
@@ -49,8 +66,32 @@ fn conv_1d_block_boundary[
     b: LayoutTensor[mut=False, dtype, conv_layout],
 ):
     global_i = block_dim.x * block_idx.x + thread_idx.x
-    local_i = thread_idx.x
-    # FILL ME IN (roughly 18 lines)
+    local_i = thread_idx.x  
+    shared_a = tb[dtype]().row_major[TPB + CONV_2 - 1]().shared().alloc()
+    shared_b = tb[dtype]().row_major[CONV_2]().shared().alloc()
+    if global_i < SIZE_2:
+        shared_a[local_i] = a[global_i]
+    # Load next block data, don't forget boundary guard
+    if local_i < CONV_2 - 1:
+        if global_i + TPB < SIZE_2:
+            shared_a[local_i + TPB] = a[global_i + TPB]
+        else:
+            shared_a[local_i + TPB] = 0
+    if local_i < CONV_2:
+        shared_b[local_i] = b[local_i]
+    
+    barrier()
+    
+    if global_i < SIZE_2:
+        var local_sum: output.element_type = 0
+        @parameter
+        for j in range(CONV_2):
+            if global_i + j < SIZE_2:
+                local_sum += shared_a[local_i + j] * shared_b[j]
+        output[global_i] = local_sum
+
+    
+        
 
 
 # ANCHOR_END: conv_1d_block_boundary
