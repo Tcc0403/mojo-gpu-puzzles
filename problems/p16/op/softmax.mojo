@@ -37,8 +37,10 @@ fn softmax_gpu_kernel[
     # 1. Find max
     stride = TPB // 2
     while stride > 0:
-        if local_idx  < stride:
-            shared_max[local_idx] = max(shared_max[local_idx], shared_max[local_idx + stride])
+        if local_idx < stride:
+            shared_max[local_idx] = max(
+                shared_max[local_idx], shared_max[local_idx + stride]
+            )
         barrier()
         stride //= 2
     var max_val: input.element_type = shared_max[0]
@@ -49,20 +51,16 @@ fn softmax_gpu_kernel[
     # 2.2 Perform sum reduction
     stride = TPB // 2
     while stride > 0:
-        if local_idx  < stride:
-            shared_sum[local_idx] = shared_sum[local_idx] + shared_sum[local_idx + stride]
+        if local_idx < stride:
+            shared_sum[local_idx] = (
+                shared_sum[local_idx] + shared_sum[local_idx + stride]
+            )
         barrier()
         stride //= 2
     var denominator: input.element_type = shared_sum[0]
     # Output softmax(x)
     if global_idx < input_size:
         output[global_idx] = exp(x_i - max_val) / denominator
-    
-    
-    
-
-
-
 
 
 # ANCHOR_END: softmax_gpu_kernel
@@ -78,17 +76,19 @@ fn softmax_cpu_kernel[
     input: LayoutTensor[dtype, layout, MutableAnyOrigin],
 ):
     var x_max: input.element_type = min_finite[dtype]()
+
     @parameter
     for i in range(input_size):
         x_max = max(input[i], x_max)
     var denominator: input.element_type = 0
+
     @parameter
     for i in range(input_size):
         denominator += exp(input[i] - x_max)
+
     @parameter
     for i in range(input_size):
         output[i] = exp(input[i] - x_max) / denominator
-        
 
 
 # ANCHOR_END: softmax_cpu_kernel

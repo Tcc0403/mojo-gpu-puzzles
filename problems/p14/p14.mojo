@@ -27,6 +27,7 @@ fn naive_matmul[
     col = block_dim.x * block_idx.x + thread_idx.x
     if row < size and col < size:
         var acc: output.element_type = 0
+
         @parameter
         for k in range(size):
             acc += a[row, k] * b[k, col]
@@ -48,7 +49,7 @@ fn single_block_matmul[
     col = block_dim.x * block_idx.x + thread_idx.x
     local_row = thread_idx.y
     local_col = thread_idx.x
-    
+
     shared_a = tb[dtype]().row_major[TPB, TPB]().shared().alloc()
     shared_b = tb[dtype]().row_major[TPB, TPB]().shared().alloc()
     if row < size and col < size:
@@ -62,12 +63,12 @@ fn single_block_matmul[
 
     if row < size and col < size:
         var acc: output.element_type = 0
+
         @parameter
         for k in range(TPB):
             acc += shared_a[row, k] * shared_b[k, col]
-        
-        output[row, col] = acc
 
+        output[row, col] = acc
 
 
 # ANCHOR_END: single_block_matmul
@@ -95,16 +96,21 @@ fn matmul_tiled[
     shared_tiled_b = tb[dtype]().row_major[TPB, TPB]().shared().alloc()
 
     var acc: output.element_type = 0
+
     @parameter
     for k_start in range(0, size, TPB):
         # Load tile A
         if global_row < size and (k_start + local_col) < size:
-            shared_tiled_a[local_row, local_col] = a[global_row, k_start + local_col]
+            shared_tiled_a[local_row, local_col] = a[
+                global_row, k_start + local_col
+            ]
         else:
             shared_tiled_a[local_row, local_col] = 0
         # Load tile B
         if global_col < size and (k_start + local_row) < size:
-            shared_tiled_b[local_row, local_col] = b[k_start + local_row, global_col]
+            shared_tiled_b[local_row, local_col] = b[
+                k_start + local_row, global_col
+            ]
         else:
             shared_tiled_b[local_row, local_col] = 0
         barrier()
@@ -113,12 +119,9 @@ fn matmul_tiled[
         for k in range(TPB):
             acc += shared_tiled_a[local_row, k] * shared_tiled_b[k, local_col]
         barrier()
-        
+
     if global_row < size and global_col < size:
         output[global_row, global_col] = acc
-
-        
-
 
 
 # ANCHOR_END: matmul_tiled

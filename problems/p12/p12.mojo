@@ -32,7 +32,7 @@ fn prefix_sum_simple[
     barrier()
 
     stride = 1
-    
+
     while stride < TPB:
         if local_i + stride < TPB:
             shared[local_i + stride] += shared[local_i]
@@ -41,8 +41,6 @@ fn prefix_sum_simple[
 
     if global_i < SIZE:
         output[global_i] = shared[local_i]
-
-
 
 
 # ANCHOR_END: prefix_sum_simple
@@ -74,7 +72,7 @@ fn prefix_sum_local_phase[
     barrier()
 
     stride = 1
-    
+
     while stride < TPB:
         if local_i + stride < TPB:
             shared[local_i + stride] += shared[local_i]
@@ -97,10 +95,10 @@ fn prefix_sum_block_sum_phase[
     # sum over previous block sums
     for j in range(block_idx.x):
         prev_block_sum = output[size + j]
-        
 
     if global_i < size:
         output[global_i] += prev_block_sum
+
 
 # ANCHOR_END: prefix_sum_complete
 

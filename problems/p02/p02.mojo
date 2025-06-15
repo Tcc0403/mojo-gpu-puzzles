@@ -19,7 +19,6 @@ fn add(
     outout[i] = a[i] + b[i]
 
 
-
 # ANCHOR_END: add
 
 
