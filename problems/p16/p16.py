@@ -1,5 +1,6 @@
 # ANCHOR: softmax_custom_op_graph
 from pathlib import Path
+
 import numpy as np
 from max.driver import CPU, Accelerator, Device, Tensor, accelerator_count
 from max.dtype import DType
@@ -29,15 +30,33 @@ def softmax(
         ],
         custom_extensions=[mojo_kernels],
     ) as graph:
-        # FILL IN (roughly 4 unformatted lines)
-        pass
+        input_value = graph.inputs[0]
+
+        output = ops.custom(
+            name="softmax",
+            values=[input_value],
+            out_types=[
+                TensorType(
+                    dtype=input_value.tensor.dtype,
+                    shape=input_value.tensor.shape,
+                    device=DeviceRef.from_device(device),
+                )
+            ],
+            parameters={
+                "input_size": input_tensor.shape[0],
+                "dtype": dtype,
+            },
+            device=DeviceRef.from_device(device),
+        )[0].tensor
+        graph.output(output)
+        
 
     # ANCHOR_END: softmax_custom_op_graph
 
     print(f"Compiling softmax graph on {device}")
     model = session.load(graph)
     print(f"Executing softmax on {device}")
-    print("="*100)
+    print("=" * 100)
     result = model.execute(input_tensor)[0]
     assert isinstance(result, Tensor)
     return result.to(CPU()) if device == Accelerator() else result
@@ -55,8 +74,12 @@ if __name__ == "__main__":
 
     cpu_result = softmax(input_array, cpu_session, CPU())
     gpu_result = softmax(input_array, gpu_session, Accelerator())
-    print(f"First few softmax results on CPU (custom Mojo kernel): {cpu_result.to_numpy()[:5]}")
-    print(f"First few softmax results on GPU (custom Mojo kernel): {gpu_result.to_numpy()[:5]}")
+    print(
+        f"First few softmax results on CPU (custom Mojo kernel): {cpu_result.to_numpy()[:5]}"
+    )
+    print(
+        f"First few softmax results on GPU (custom Mojo kernel): {gpu_result.to_numpy()[:5]}"
+    )
     print(f"First few expected results (SciPy calculation): {expected_result[:5]}")
 
     np.testing.assert_allclose(cpu_result.to_numpy(), expected_result, rtol=1e-5)
