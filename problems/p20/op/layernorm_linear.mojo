@@ -102,6 +102,33 @@ fn layernorm_kernel[
     var sq_sum: Scalar[dtype] = 0
 
     # FILL ME IN (roughly 11 lines)
+    var x: Scalar[dtype]
+    shared = tb[dtype]().row_major[TPB]().shared().alloc()
+    shared_square = tb[dtype]().row_major[TPB]().shared().alloc()
+    x = rebind[Scalar[dtype]](input[batch_idx, seq_idx, hidden_idx])
+    shared[hidden_idx] = x
+    shared_square[hidden_idx] = x * x
+
+    barrier()
+
+    stride = hidden_dim // 2
+    while stride > 0:
+        if hidden_idx < stride:
+            shared[hidden_idx] += shared[hidden_idx + stride]
+            shared_square[hidden_idx] += shared_square[hidden_idx + stride]
+        barrier()
+        stride //= 2
+    sum_val = rebind[Scalar[dtype]](shared[0])
+    sq_sum = rebind[Scalar[dtype]](shared_square[0])
+
+    mean_val = sum_val / hidden_dim
+    var_val = sq_sum / hidden_dim - mean_val * mean_val
+    inv_std = 1.0 / sqrt(var_val + 1e-5)
+
+    normalized = (x - mean_val) * inv_std * rebind[Scalar[dtype]](
+        ln_weight[hidden_idx]
+    ) + rebind[Scalar[dtype]](ln_bias[hidden_idx])
+    output[batch_idx, seq_idx, hidden_idx] = normalized
 
 
 # ANCHOR_END: layernorm_kernel
@@ -207,11 +234,36 @@ fn minimal_fused_kernel[
 
     # Step 1: Compute LayerNorm statistics once per sequence position
 
-    # FILL IN roughly 10 lines
+    # FILL IN roughly 10 lines# FILL ME IN (roughly 11 lines)
+    var sum_val: Scalar[dtype] = 0
+    var sq_sum: Scalar[dtype] = 0
+
+    @parameter
+    for i in range(hidden_dim):
+        x = rebind[Scalar[dtype]](input[batch_idx, seq_idx, i])
+        sum_val += x
+        sq_sum += x * x
+
+    mean_val = sum_val / hidden_dim
+    var_val = sq_sum / hidden_dim - mean_val * mean_val
+    inv_std = 1.0 / sqrt(var_val + 1e-5)
 
     # Step 2: Compute all outputs for this sequence position
 
     # FILL IN roughly 10 lines
+    @parameter
+    for output_idx in range(output_dim):
+        var acc: output.element_type = 0
+
+        @parameter
+        for hidden_idx in range(hidden_dim):
+            x = rebind[Scalar[dtype]](input[batch_idx, seq_idx, hidden_idx])
+            normalized = (x - mean_val) * inv_std * rebind[Scalar[dtype]](
+                ln_weight[hidden_idx]
+            ) + rebind[Scalar[dtype]](ln_bias[hidden_idx])
+            acc += normalized * linear_weight[output_idx, hidden_idx]
+
+        output[batch_idx, seq_idx, output_idx] = acc + linear_bias[output_idx]
 
 
 # ANCHOR_END: minimal_fused_forward_kernel

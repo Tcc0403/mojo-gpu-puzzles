@@ -1,6 +1,8 @@
-from typing import Optional
 from pathlib import Path
+from typing import Optional
+
 import numpy as np
+
 # ANCHOR: conv1d_pytorch
 import torch
 from max.torch import CustomOpLibrary
@@ -23,8 +25,7 @@ def conv1d_pytorch(input_tensor: torch.Tensor, kernel_tensor: torch.Tensor) -> t
     # Call our custom conv1d operation with explicit output tensor
     # The Mojo signature expects: (out, input, kernel)
     conv1d = ops.conv1d[{"input_size": input_tensor.shape[0], "conv_size": kernel_tensor.shape[0]}]
-
-    # FILL IN with 1 line of code
+    torch.compile(conv1d)(output_tensor, input_tensor, kernel_tensor)
 
     return output_tensor
 

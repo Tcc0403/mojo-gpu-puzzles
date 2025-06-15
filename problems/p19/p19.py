@@ -1,8 +1,8 @@
 import time
-import torch
 from pathlib import Path
-from max.torch import CustomOpLibrary
 
+import torch
+from max.torch import CustomOpLibrary
 
 mojo_kernels = Path(__file__).parent / "op"
 ops = CustomOpLibrary(mojo_kernels)
@@ -50,7 +50,7 @@ if __name__ == "__main__":
     print("=" * 70)
     print()
 
-    batch_size, seq_len, vocab_size, embed_dim = 8, 512, 10000, 512
+    batch_size, seq_len, vocab_size, embed_dim = 8, 1024, 128000, 4096
     print(f"Configuration: B={batch_size}, L={seq_len}, V={vocab_size}, E={embed_dim}")
     print("-" * 60)
 
