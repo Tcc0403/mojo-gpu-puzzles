@@ -97,11 +97,12 @@ fn matmul_tiled[
     var acc: output.element_type = 0
     @parameter
     for k_start in range(0, size, TPB):
-        # Load tile      
+        # Load tile A
         if global_row < size and (k_start + local_col) < size:
             shared_tiled_a[local_row, local_col] = a[global_row, k_start + local_col]
         else:
             shared_tiled_a[local_row, local_col] = 0
+        # Load tile B
         if global_col < size and (k_start + local_row) < size:
             shared_tiled_b[local_row, local_col] = b[k_start + local_row, global_col]
         else:
