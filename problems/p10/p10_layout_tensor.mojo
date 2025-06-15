@@ -39,6 +39,7 @@ fn dot_product[
     if global_i == 0:
         output[0] = shared[0]
 
+
 # ANCHOR_END: dot_product_layout_tensor
 
 

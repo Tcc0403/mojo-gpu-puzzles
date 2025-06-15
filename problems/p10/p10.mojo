@@ -36,12 +36,6 @@ fn dot_product(
         barrier()
     if idx == 0:
         output[0] = shared[0]
-    
-
-
-
-
-
 
 
 # ANCHOR_END: dot_product

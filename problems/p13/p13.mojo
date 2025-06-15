@@ -57,13 +57,9 @@ fn axis_sum[
             shared[local_i] += temp
         barrier()
         stride //= 2
-            
 
     if local_i == 0:
         output[batch, 0] = shared[0]
-    
-
-
 
 
 # ANCHOR_END: axis_sum
