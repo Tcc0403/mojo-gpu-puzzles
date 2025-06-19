@@ -32,7 +32,7 @@ fn elementwise_add[
         simd_width: Int, rank: Int
     ](indices: IndexList[rank]) capturing -> None:
         idx = indices[0]
-        print("idx:", idx)
+        # print("idx:", idx)
 
         a_simd = a.load[simd_width](idx, 0)
         b_simd = b.load[simd_width](idx, 0)
@@ -68,7 +68,7 @@ fn tiled_elementwise_add[
         simd_width: Int, rank: Int
     ](indices: IndexList[rank]) capturing -> None:
         tile_id = indices[0]
-        print("tile_id:", tile_id)
+        # print("tile_id:", tile_id)
         output_tile = output.tile[tile_size](tile_id)
         a_tile = a.tile[tile_size](tile_id)
         b_tile = b.tile[tile_size](tile_id)
@@ -112,7 +112,7 @@ fn manual_vectorized_tiled_elementwise_add[
         num_threads_per_tile: Int, rank: Int
     ](indices: IndexList[rank]) capturing -> None:
         tile_id = indices[0]
-        print("tile_id:", tile_id)
+        # print("tile_id:", tile_id)
         # Not using tile views here
         # out_tile = output.tile[chunk_size](tile_id)
         # a_tile = a.tile[chunk_size](tile_id)
@@ -163,16 +163,16 @@ fn vectorize_within_tiles_elementwise_add[
         tile_start = tile_id * tile_size
         tile_end = min(tile_start + tile_size, size)
         actual_tile_size = tile_end - tile_start
-        print(
-            "tile_id:",
-            tile_id,
-            "tile_start:",
-            tile_start,
-            "tile_end:",
-            tile_end,
-            "actual_tile_size:",
-            actual_tile_size,
-        )
+        # print(
+        #     "tile_id:",
+        #     tile_id,
+        #     "tile_start:",
+        #     tile_start,
+        #     "tile_end:",
+        #     tile_end,
+        #     "actual_tile_size:",
+        #     actual_tile_size,
+        # )
 
         @parameter
         fn vectorized_add[width: Int](i: Int):
