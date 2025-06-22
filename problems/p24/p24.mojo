@@ -27,7 +27,11 @@ fn butterfly_pair_swap[
     """
     global_i = block_dim.x * block_idx.x + thread_idx.x
 
-    # FILL ME IN (4 lines)
+    if global_i < size:
+        current_value = input[global_i]
+        other_value = shuffle_xor(current_value, 1)
+
+        output[global_i] = other_value
 
 
 # ANCHOR_END: butterfly_pair_swap
@@ -49,7 +53,16 @@ fn butterfly_parallel_max[
     """
     global_i = block_dim.x * block_idx.x + thread_idx.x
 
-    # FILL ME IN (roughly 7 lines)
+    var local_max: input.element_type = 0
+    if global_i < size:
+        local_max = input[global_i]
+
+    offset = WARP_SIZE >> 1
+    while offset >= 1:
+        local_max = max(local_max, shuffle_xor(local_max, offset))
+        offset >>= 1
+
+    output[global_i] = local_max
 
 
 # ANCHOR_END: butterfly_parallel_max
@@ -80,7 +93,15 @@ fn butterfly_conditional_max[
         current_val = input[global_i]
         min_val = current_val
 
-        # FILL ME IN (roughly 11 lines)
+        offset = WARP_SIZE >> 1
+        while offset >= 1:
+            current_val = max(current_val, shuffle_xor(current_val, offset))
+            min_val = min(min_val, shuffle_xor(min_val, offset))
+            offset >>= 1
+        if lane_id() & 1:
+            output[global_i] = min_val
+        else:
+            output[global_i] = current_val
 
 
 # ANCHOR_END: butterfly_conditional_max
@@ -114,7 +135,10 @@ fn warp_inclusive_prefix_sum[
     """
     global_i = block_dim.x * block_idx.x + thread_idx.x
 
-    # FILL ME IN (roughly 4 lines)
+    if global_i < size:
+        current_val = rebind[Scalar[dtype]](input[global_i])
+        scan_result = prefix_sum(current_val)
+        output[global_i] = scan_result
 
 
 # ANCHOR_END: warp_inclusive_prefix_sum
@@ -150,6 +174,42 @@ fn warp_partition[
         current_val = input[global_i]
 
         # FILL ME IN (roughly 13 lines)
+        # Phase 1: Create warp-level predicates
+        # Pivot: 4
+        # Input:
+        #       [3, 7, 1, 8, 2, 9, 4, 6]
+        # predicate_left (curr < pivot):
+        #       [1, 0, 1, 0, 1, 0, 0, 0]
+        # predicate_right (curr >= pivot):
+        #       [0, 1, 0, 1, 0, 1, 1, 1]
+        pred_left = Float32(1.0) if current_val < pivot else Float32(0.0)
+        pred_right = Float32(1.0) if current_val >= pivot else Float32(0.0)
+
+        # Phase 2: Warp-level prefix sum to get positions withing warp
+        # warp_left_pos (absolute position for left partition):
+        #       [0, 1, 1, 2, 2, 3, 3, 3]
+        # warp_right_pos (relative position to the pivot for left partition):
+        #       [0, 0, 1, 1, 2, 2, 3, 3]
+        warp_left_pos = prefix_sum[exclusive=True](pred_left)
+        warp_right_pos = prefix_sum[exclusive=True](pred_right)
+
+        # Phase 3: Get total left count using shuffle_xor reduction
+        # Sum of predicate_left is the number of elements in left partition
+        # It is also the position of the pivot
+        warp_left_total = pred_left
+        # Butterfly reduction to get toal across the warp: dynamic for any WARP_SIZE
+        offset = WARP_SIZE // 2
+        while offset > 0:
+            warp_left_total += shuffle_xor(warp_left_total, offset)
+            offset //= 2
+
+        # Phase 4: Write to output positions
+        if current_val < pivot:
+            # Left partition: use warp-level position
+            output[Int(warp_left_pos)] = current_val
+        else:
+            # Right partition: offset by total left count + right position
+            output[Int(warp_left_total + warp_right_pos)] = current_val
 
 
 # ANCHOR_END: warp_partition
